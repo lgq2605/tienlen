@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tiến Lên Miền Nam</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green-felt: #1a472a;
+    --green-light: #2d6a4f;
+    --green-dark: #0d2b1a;
+    --gold: #c9a84c;
+    --gold-light: #f0d080;
+    --cream: #fdf6e3;
+    --card-bg: #fffef9;
+    --card-border: #e8e0c8;
+    --red-suit: #c0392b;
+    --black-suit: #1a1a2e;
+    --selected: #f0d080;
+    --selected-border: #c9a84c;
+    --btn-bg: linear-gradient(135deg, #c9a84c, #a07830);
+    --shadow: 0 4px 16px rgba(0,0,0,0.4);
+    --text-light: #fdf6e3;
+    --text-dark: #1a1a2e;
+    --bomb-color: #e74c3c;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: radial-gradient(ellipse at center, #1a472a 0%, #0d2b1a 100%);
+    min-height: 100vh;
+    color: var(--text-light);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-x: hidden;
+  }
+  h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 2rem;
+    color: var(--gold);
+    text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    letter-spacing: 2px;
+    text-align: center;
+    padding: 1rem 0 0.25rem;
+  }
+  .subtitle { font-size: 0.8rem; color: #9dbf9e; text-align: center; margin-bottom: 0.75rem; letter-spacing: 1px; }
+
+  #game-container {
+    width: 100%;
+    max-width: 900px;
+    padding: 0 1rem 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  /* Bot hands */
+  .bot-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .bot-label {
+    font-size: 0.75rem;
+    color: #9dbf9e;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .bot-label .count-badge {
+    background: rgba(201,168,76,0.25);
+    border: 1px solid var(--gold);
+    color: var(--gold);
+    border-radius: 10px;
+    padding: 1px 7px;
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+  .bot-label .turn-indicator {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--gold);
+    animation: pulse 1s infinite;
+    display: none;
+  }
+  .bot-label.active-turn .turn-indicator { display: inline-block; }
+  @keyframes pulse { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:0.5; transform:scale(0.8); } }
+
+  .bot-hand {
+    display: flex;
+    justify-content: center;
+    flex-wrap: nowrap;
+  }
+  .bot-card {
+    width: 36px; height: 52px;
+    background: linear-gradient(135deg, #1e3a5f, #0d2040);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 5px;
+    margin-left: -14px;
+    box-shadow: 1px 1px 4px rgba(0,0,0,0.4);
+    position: relative;
+  }
+  .bot-card::after {
+    content: '🂠';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    font-size: 1.2rem;
+    opacity: 0.3;
+  }
+  .bot-card:first-child { margin-left: 0; }
+
+  /* Table area */
+  .table-area {
+    background: rgba(0,0,0,0.2);
+    border: 1px solid rgba(201,168,76,0.2);
+    border-radius: 16px;
+    padding: 0.75rem 1rem;
+    min-height: 140px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .played-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 80px;
+    justify-content: flex-end;
+  }
+
+  .played-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    animation: slideIn 0.3s ease;
+  }
+  @keyframes slideIn { from { opacity:0; transform: translateY(6px); } to { opacity:1; transform: translateY(0); } }
+
+  .played-by {
+    font-size: 0.7rem;
+    color: rgba(255,255,255,0.5);
+    min-width: 60px;
+    text-align: right;
+  }
+  .played-by.you { color: var(--gold-light); }
+
+  .played-cards {
+    display: flex;
+    gap: 4px;
+  }
+
+  .status-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    padding-top: 0.5rem;
+    font-size: 0.8rem;
+    color: rgba(255,255,255,0.6);
+  }
+  .status-msg { flex: 1; text-align: center; }
+  .status-msg.you-turn { color: var(--gold-light); font-weight: 600; }
+  .status-msg.error { color: #e74c3c; }
+  .status-msg.success { color: #2ecc71; }
+  .status-msg.info { color: #9dbf9e; }
+
+  /* Playing cards */
+  .card {
+    width: 46px; height: 66px;
+    background: var(--card-bg);
+    border: 1.5px solid var(--card-border);
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: 3px 4px;
+    cursor: pointer;
+    position: relative;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+    user-select: none;
+    flex-shrink: 0;
+  }
+  .card:hover { transform: translateY(-4px); box-shadow: 0 6px 16px rgba(0,0,0,0.4); }
+  .card.selected {
+    border-color: var(--selected-border);
+    background: #fffbe8;
+    transform: translateY(-10px);
+    box-shadow: 0 8px 20px rgba(201,168,76,0.5);
+  }
+  .card.small { width: 38px; height: 54px; padding: 2px 3px; }
+  .card.small .rank { font-size: 0.7rem; }
+  .card.small .suit-center { font-size: 1rem; }
+
+  .card-corner { display: flex; flex-direction: column; align-items: center; line-height: 1; }
+  .card-corner-bottom { transform: rotate(180deg); }
+  .rank { font-size: 0.8rem; font-weight: 700; line-height: 1; }
+  .suit-small { font-size: 0.65rem; line-height: 1; }
+  .suit-center { font-size: 1.3rem; line-height: 1; }
+
+  .card.red .rank, .card.red .suit-small, .card.red .suit-center { color: var(--red-suit); }
+  .card.black .rank, .card.black .suit-small, .card.black .suit-center { color: var(--black-suit); }
+
+  /* Player hand */
+  .player-area { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .player-label {
+    font-size: 0.75rem;
+    color: var(--gold-light);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .player-label .turn-indicator { width: 8px; height: 8px; border-radius: 50%; background: var(--gold); animation: pulse 1s infinite; display: none; }
+  .player-label.active-turn .turn-indicator { display: inline-block; }
+
+  .player-hand {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    min-height: 70px;
+  }
+  .player-hand .card { margin-left: 0; }
+
+  /* Action buttons */
+  .action-bar {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .btn {
+    padding: 0.5rem 1.2rem;
+    border: none;
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.5px;
+  }
+  .btn:active { transform: scale(0.96); }
+  .btn-play {
+    background: linear-gradient(135deg, #c9a84c, #a07830);
+    color: #fff;
+    box-shadow: 0 3px 10px rgba(201,168,76,0.4);
+  }
+  .btn-play:hover { background: linear-gradient(135deg, #f0d080, #c9a84c); }
+  .btn-pass {
+    background: rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.7);
+    border: 1px solid rgba(255,255,255,0.2);
+  }
+  .btn-pass:hover { background: rgba(255,255,255,0.15); color: #fff; }
+  .btn-pass:disabled, .btn-play:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    transform: none;
+  }
+  .btn-sort {
+    background: rgba(255,255,255,0.05);
+    color: rgba(255,255,255,0.5);
+    border: 1px solid rgba(255,255,255,0.1);
+    font-size: 0.75rem;
+    padding: 0.4rem 0.8rem;
+  }
+  .btn-new-game {
+    background: linear-gradient(135deg, #2d6a4f, #1a472a);
+    color: var(--gold-light);
+    border: 1px solid var(--gold);
+    box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+  }
+  .btn-new-game:hover { background: linear-gradient(135deg, #3d8a6f, #2d6a4f); }
+
+  /* Finish overlay */
+  #finish-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  #finish-overlay.show { display: flex; }
+  .finish-card {
+    background: radial-gradient(ellipse at top, #2d6a4f, #0d2b1a);
+    border: 2px solid var(--gold);
+    border-radius: 20px;
+    padding: 2rem 3rem;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    max-width: 380px;
+    width: 90%;
+  }
+  .finish-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 2.5rem;
+    color: var(--gold);
+    margin-bottom: 0.5rem;
+  }
+  .finish-subtitle { color: #9dbf9e; font-size: 0.9rem; margin-bottom: 1.5rem; }
+  .finish-ranks { display: flex; flex-direction: column; gap: 8px; margin-bottom: 1.5rem; }
+  .finish-rank {
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 0.9rem;
+  }
+  .finish-rank .medal { font-size: 1.3rem; width: 28px; }
+  .finish-rank .rank-name { flex: 1; text-align: left; }
+  .finish-rank.you .rank-name { color: var(--gold-light); font-weight: 600; }
+
+  /* Combo type label */
+  .combo-label {
+    font-size: 0.7rem;
+    background: rgba(201,168,76,0.15);
+    border: 1px solid rgba(201,168,76,0.3);
+    color: var(--gold-light);
+    border-radius: 4px;
+    padding: 1px 6px;
+    white-space: nowrap;
+  }
+  .combo-label.bomb { background: rgba(231,76,60,0.15); border-color: rgba(231,76,60,0.4); color: #e74c3c; }
+
+  /* Two-col bot layout */
+  .bots-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+  }
+
+  /* Score bar */
+  .score-bar {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    font-size: 0.75rem;
+    color: rgba(255,255,255,0.5);
+    flex-wrap: wrap;
+  }
+  .score-item { display: flex; align-items: center; gap: 4px; }
+  .score-item .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .score-item.you { color: var(--gold-light); }
+  .score-item.you .dot { background: var(--gold); }
+
+  /* Thinking indicator */
+  .thinking { display: none; }
+  .thinking.show { display: inline-flex; gap: 3px; align-items: center; }
+  .thinking span {
+    width: 5px; height: 5px;
+    background: var(--gold);
+    border-radius: 50%;
+    animation: bounce 0.8s infinite;
+  }
+  .thinking span:nth-child(2) { animation-delay: 0.15s; }
+  .thinking span:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes bounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+</style>
+</head>
+<body>
+<h1>Tiến Lên Miền Nam</h1>
+<div class="subtitle">Vietnamese Southern Poker</div>
+
+<div id="game-container">
+  <!-- Score bar -->
+  <div class="score-bar" id="score-bar"></div>
+
+  <!-- Bots -->
+  <div class="bots-row" id="bots-row"></div>
+
+  <!-- Table -->
+  <div class="table-area">
+    <div class="played-rows" id="played-rows"></div>
+    <div class="status-bar">
+      <div class="thinking" id="thinking"><span></span><span></span><span></span></div>
+      <div class="status-msg" id="status-msg">Đang bắt đầu...</div>
+    </div>
+  </div>
+
+  <!-- Player -->
+  <div class="player-area">
+    <div class="player-label" id="player-label">
+      <div class="turn-indicator"></div>
+      <span>Bạn</span>
+      <span class="count-badge" id="player-count" style="background:rgba(201,168,76,0.25);border:1px solid var(--gold);color:var(--gold);border-radius:10px;padding:1px 7px;font-size:0.7rem;font-weight:600;"></span>
+    </div>
+    <div class="player-hand" id="player-hand"></div>
+  </div>
+
+  <!-- Actions -->
+  <div class="action-bar" id="action-bar">
+    <button class="btn btn-play" id="btn-play" onclick="playSelected()">Đánh ▶</button>
+    <button class="btn btn-pass" id="btn-pass" onclick="pass()">Bỏ qua</button>
+    <button class="btn btn-sort" onclick="sortHand()">Sắp xếp</button>
+    <button class="btn btn-new-game" onclick="newGame()">Ván mới</button>
+  </div>
+</div>
+
+<!-- Finish overlay -->
+<div id="finish-overlay">
+  <div class="finish-card">
+    <div class="finish-title" id="finish-title">🎉</div>
+    <div class="finish-subtitle" id="finish-subtitle"></div>
+    <div class="finish-ranks" id="finish-ranks"></div>
+    <button class="btn btn-new-game" onclick="newGame()" style="width:100%;padding:0.7rem;">Chơi lại</button>
+  </div>
+</div>
+
+<script>
+// ===================== CARD ENGINE =====================
+const SUITS = ['♠','♣','♦','♥']; // 0=lowest,3=highest
+const RANKS = ['3','4','5','6','7','8','9','10','J','Q','K','A','2']; // index = value
+const SUIT_SYMBOLS = ['♠','♣','♦','♥'];
+
+function cardVal(c) { return RANKS.indexOf(c.rank) * 4 + SUITS.indexOf(c.suit); }
+function cardCmp(a,b) { return cardVal(a) - cardVal(b); }
+function rankIdx(r) { return RANKS.indexOf(r); }
+
+function makeDeck() {
+  const deck = [];
+  for (const s of SUITS) for (const r of RANKS) deck.push({rank:r, suit:s});
+  return deck;
+}
+function shuffle(arr) {
+  for (let i=arr.length-1;i>0;i--) { const j=Math.random()*(i+1)|0; [arr[i],arr[j]]=[arr[j],arr[i]]; }
+  return arr;
+}
+
+// ===================== COMBO DETECTION =====================
+function detectCombo(cards) {
+  const n = cards.length;
+  if (n === 0) return null;
+  const s = [...cards].sort(cardCmp);
+
+  if (n === 1) return {type:'single', cards:s, top:s[0]};
+
+  if (n === 2) {
+    if (s[0].rank === s[1].rank) return {type:'pair', cards:s, top:s[1]};
+    return null;
+  }
+  if (n === 3) {
+    if (s[0].rank === s[1].rank && s[1].rank === s[2].rank) return {type:'triple', cards:s, top:s[2]};
+    // 3-card straight
+    const ri = s.map(c=>rankIdx(c.rank));
+    if (ri[0]+1===ri[1] && ri[1]+1===ri[2] && !s.some(c=>c.rank==='2'))
+      return {type:'straight', cards:s, top:s[2], len:3};
+    return null;
+  }
+  if (n === 4) {
+    // 4-of-kind (bomb)
+    if (s.every(c=>c.rank===s[0].rank)) return {type:'four', cards:s, top:s[3], bomb:true};
+    // 4-card straight
+    const ri = s.map(c=>rankIdx(c.rank));
+    if (ri.every((v,i)=>i===0||v===ri[i-1]+1) && !s.some(c=>c.rank==='2'))
+      return {type:'straight', cards:s, top:s[3], len:4};
+    return null;
+  }
+  if (n === 6) {
+    // 3 consecutive pairs bomb
+    const pairs = [];
+    for (let i=0;i<6;i+=2) { if(s[i].rank!==s[i+1].rank) { pairs.push(null); break; } pairs.push(s[i].rank); }
+    if (pairs.length===3 && pairs[0] && rankIdx(pairs[1])===rankIdx(pairs[0])+1 && rankIdx(pairs[2])===rankIdx(pairs[1])+1)
+      return {type:'consec3', cards:s, top:s[5], bomb:true};
+    // 6-card straight
+    const ri = s.map(c=>rankIdx(c.rank));
+    if (ri.every((v,i)=>i===0||v===ri[i-1]+1) && !s.some(c=>c.rank==='2'))
+      return {type:'straight', cards:s, top:s[5], len:6};
+    return null;
+  }
+  if (n === 8) {
+    // 4 consecutive pairs bomb
+    const pairs2 = [];
+    for (let i=0;i<8;i+=2) { if(s[i].rank!==s[i+1].rank) { pairs2.push(null); break; } pairs2.push(s[i].rank); }
+    if (pairs2.length===4 && pairs2[0] && pairs2.every((p,i)=>i===0||rankIdx(p)===rankIdx(pairs2[i-1])+1))
+      return {type:'consec4', cards:s, top:s[7], bomb:true};
+    // 8-card straight
+    const ri = s.map(c=>rankIdx(c.rank));
+    if (ri.every((v,i)=>i===0||v===ri[i-1]+1) && !s.some(c=>c.rank==='2'))
+      return {type:'straight', cards:s, top:s[7], len:8};
+    return null;
+  }
+  // General straight (n>=3)
+  const ri2 = s.map(c=>rankIdx(c.rank));
+  if (ri2.every((v,i)=>i===0||v===ri2[i-1]+1) && !s.some(c=>c.rank==='2'))
+    return {type:'straight', cards:s, top:s[n-1], len:n};
+  return null;
+}
+
+// Can combo A beat combo B?
+function beats(A, B) {
+  if (!B) return true; // leads
+  const at = A.type, bt = B.type;
+
+  // Same type comparison
+  if (at === bt) {
+    if (at === 'straight') {
+      if (A.len !== B.len) return false;
+      return cardVal(A.top) > cardVal(B.top);
+    }
+    return cardVal(A.top) > cardVal(B.top);
+  }
+
+  // Bomb overrides
+  if (at === 'four') {
+    // four beats single2, consec3
+    if (bt === 'single' && B.top.rank === '2') return true;
+    if (bt === 'consec3') return true;
+    if (bt === 'four') return cardVal(A.top) > cardVal(B.top);
+    return false;
+  }
+  if (at === 'consec3') {
+    // consec3 beats single2
+    if (bt === 'single' && B.top.rank === '2') return true;
+    if (bt === 'consec3') return cardVal(A.top) > cardVal(B.top);
+    return false;
+  }
+  if (at === 'consec4') {
+    // consec4 beats single2, pair, consec3, four, smaller consec4
+    if (bt === 'single' && B.top.rank === '2') return true;
+    if (bt === 'pair') return true;
+    if (bt === 'consec3') return true;
+    if (bt === 'four') return true;
+    if (bt === 'consec4') return cardVal(A.top) > cardVal(B.top);
+    return false;
+  }
+  return false;
+}
+
+const COMBO_NAMES = {
+  single:'Lẻ', pair:'Đôi', triple:'Ba lá', straight:'Sảnh',
+  four:'Tứ quý 💣', consec3:'Ba đôi thông 💣', consec4:'Bốn đôi thông 💣'
+};
+
+// ===================== BOT AI =====================
+// Helpers
+const isBombCombo = c => c.type==='four'||c.type==='consec3'||c.type==='consec4';
+const has2Card    = c => c.cards.some(x=>x.rank==='2');
+
+function findAllValidPlays(hand, tableCombo) {
+  const valid = [];
+  const n = hand.length;
+
+  const tryAdd = (cards) => {
+    const combo = detectCombo(cards);
+    if (!combo) return;
+    if (!tableCombo || beats(combo, tableCombo)) valid.push(combo);
+  };
+
+  // Singles
+  for (const c of hand) tryAdd([c]);
+
+  // Group by rank
+  const byRank = {};
+  for (const c of hand) (byRank[c.rank] = byRank[c.rank]||[]).push(c);
+
+  // Pairs, triples, four-of-kind
+  for (const r in byRank) {
+    const g = byRank[r];
+    if (g.length >= 2) tryAdd(g.slice(0,2));
+    if (g.length >= 3) tryAdd(g.slice(0,3));
+    if (g.length >= 4) tryAdd(g.slice(0,4));
+  }
+
+  // Straights: try every starting card, build runs using one card per rank
+  const sorted = [...hand].sort(cardCmp);
+  // Build unique-rank sorted list (skip 2s)
+  const uniqueByRank = [];
+  const seen = new Set();
+  for (const c of sorted) {
+    if (c.rank==='2') continue;
+    if (!seen.has(c.rank)) { seen.add(c.rank); uniqueByRank.push(c); }
+  }
+  for (let s=0; s<uniqueByRank.length; s++) {
+    let run = [uniqueByRank[s]];
+    for (let e=s+1; e<uniqueByRank.length; e++) {
+      if (rankIdx(uniqueByRank[e].rank) !== rankIdx(run[run.length-1].rank)+1) break;
+      run.push(uniqueByRank[e]);
+      if (run.length >= 3) tryAdd([...run]);
+    }
+  }
+
+  // Consecutive pairs (3 and 4 pairs)
+  const pairRanks = Object.keys(byRank)
+    .filter(r => byRank[r].length >= 2 && r !== '2')
+    .sort((a,b)=>rankIdx(a)-rankIdx(b));
+  for (let s=0; s<pairRanks.length; s++) {
+    let run = [pairRanks[s]];
+    for (let e=s+1; e<pairRanks.length; e++) {
+      if (rankIdx(pairRanks[e]) !== rankIdx(run[run.length-1])+1) break;
+      run.push(pairRanks[e]);
+      if (run.length === 3) tryAdd(run.flatMap(r=>byRank[r].slice(0,2)));
+      if (run.length === 4) tryAdd(run.flatMap(r=>byRank[r].slice(0,2)));
+    }
+  }
+
+  // Deduplicate by card signature
+  const sig = combo => combo.cards.map(c=>c.rank+c.suit).sort().join(',');
+  const seen2 = new Set();
+  return valid.filter(c => { const s=sig(c); if(seen2.has(s)) return false; seen2.add(s); return true; });
+}
+
+class Bot {
+  constructor(name, level) {
+    this.name = name;
+    this.level = level; // 1=easy, 2=medium, 3=hard
+    this.hand = [];
+    this.passed = false;
+  }
+
+  think(tableCombo, allPlayers, currentTrick) {
+    this._allPlayers = allPlayers;
+    this._currentTrick = currentTrick;
+    const plays = findAllValidPlays(this.hand, tableCombo);
+    if (plays.length === 0) return null; // genuinely can't play
+
+    if (!tableCombo) return this.decideLead(plays);
+    return this.decideCounter(plays, tableCombo, allPlayers, currentTrick);
+  }
+
+  // ---- LEADING (we won the trick, play anything) ----
+  decideLead(plays) {
+    // Priority: shed cards efficiently
+    // 1. Use long straights/consec-pairs to dump many cards at once
+    // 2. Use pairs/triples to clear duplicates
+    // 3. Lead low singles to bait opponents
+    // 4. Save 2s and bombs for last resort
+
+    const normal = plays.filter(p => !isBombCombo(p) && !has2Card(p));
+    const with2   = plays.filter(p => !isBombCombo(p) && has2Card(p));
+    const bombs   = plays.filter(isBombCombo);
+
+    // Score each play: reward shedding many cards, penalise wasting high cards
+    const score = (p) => {
+      let s = p.cards.length * 10;           // more cards = better
+      s -= cardVal(p.top) * 0.3;             // lower top card = better
+      if (p.type==='straight') s += 5;       // bonus for straights
+      if (p.type==='consec3'||p.type==='consec4') s += 8;
+      return s;
+    };
+
+    if (normal.length > 0) {
+      normal.sort((a,b) => score(b)-score(a));
+      return normal[0];
+    }
+    if (with2.length > 0) {
+      // Only lead a 2 if we have very few cards left
+      if (this.hand.length <= 3) {
+        with2.sort((a,b)=>score(b)-score(a));
+        return with2[0];
+      }
+    }
+    if (bombs.length > 0) {
+      bombs.sort((a,b)=>score(b)-score(a));
+      return bombs[0];
+    }
+    // Last resort: anything
+    plays.sort((a,b)=>score(b)-score(a));
+    return plays[0];
+  }
+
+  // ---- COUNTERING (must beat the current table combo) ----
+  decideCounter(plays, tableCombo, allPlayers, currentTrick) {
+    const normal = plays.filter(p => !isBombCombo(p));
+    const bombs  = plays.filter(isBombCombo);
+
+    // Easy bot: always play lowest valid move
+    if (this.level === 1) {
+      plays.sort((a,b)=>cardVal(a.top)-cardVal(b.top));
+      return plays[0];
+    }
+
+    // --- Decide whether to play or pass ---
+    // We pass only strategically (not randomly!):
+    //   - If the table combo belongs to someone with few cards left (let others handle it)
+    //   - If we'd waste a very high card and someone else might beat it
+    // But we NEVER pass just because of an arbitrary threshold.
+
+    const tableOwnerIdx = currentTrick.length > 0
+      ? currentTrick[currentTrick.length-1].playerIdx : -1;
+    const tableOwner = tableOwnerIdx >= 0 ? allPlayers[tableOwnerIdx] : null;
+    const ownerCardCount = tableOwner ? tableOwner.hand.length : 99;
+    const ownerIsWinning = ownerCardCount <= 3; // they might finish soon
+
+    // How many active opponents can still beat after us?
+    const myIdx = allPlayers.indexOf(allPlayers.find(pl=>pl.bot===this));
+    const activeAfterUs = allPlayers.filter((p,i) => {
+      if (p.finished || p.passed) return false;
+      return i !== myIdx;
+    }).length;
+
+    if (normal.length > 0) {
+      normal.sort((a,b)=>cardVal(a.top)-cardVal(b.top));
+      const cheapest = normal[0];
+
+      // Hard bot: be smarter about when to pass
+      if (this.level === 3) {
+        // Pass if: owner is close to winning AND we'd have to use a really high card AND others can counter
+        const usingTooHighCard = cardVal(cheapest.top) >= rankIdx('K')*4 && this.hand.length > 5;
+        const othersCanHandle  = activeAfterUs >= 2;
+        if (ownerIsWinning && usingTooHighCard && othersCanHandle) return null; // strategic pass
+
+        // Otherwise always play
+        return cheapest;
+      }
+
+      // Medium bot: mostly always play, rare pass when owner is close to winning
+      if (this.level === 2) {
+        const usingTooHighCard = cardVal(cheapest.top) >= rankIdx('A')*4 && this.hand.length > 6;
+        if (ownerIsWinning && usingTooHighCard && activeAfterUs >= 2) return null;
+        return cheapest;
+      }
+    }
+
+    // No normal play — try bombs
+    if (bombs.length > 0) {
+      // Use bomb if: table top is a 2, or we have no other choice
+      const mustBomb = tableCombo.top.rank === '2' || normal.length === 0;
+      if (mustBomb) {
+        bombs.sort((a,b)=>a.cards.length-b.cards.length); // weakest bomb first
+        return bombs[0];
+      }
+    }
+
+    return null; // truly stuck
+  }
+}
+
+// ===================== GAME STATE =====================
+let G = {};
+
+function newGame() {
+  document.getElementById('finish-overlay').classList.remove('show');
+  const deck = shuffle(makeDeck());
+  G = {
+    players: [
+      {name:'Bạn', hand:[], isHuman:true, passed:false, finished:false, finishRank:0},
+      {name:'Bot 1', hand:[], bot:new Bot('Bot 1',2), passed:false, finished:false, finishRank:0},
+      {name:'Bot 2', hand:[], bot:new Bot('Bot 2',3), passed:false, finished:false, finishRank:0},
+      {name:'Bot 3', hand:[], bot:new Bot('Bot 3',2), passed:false, finished:false, finishRank:0},
+    ],
+    currentTrick: [],    // array of {player, combo}
+    tableCombo: null,    // current combo to beat
+    turn: 0,             // index into players
+    finishOrder: [],
+    scores: [0,0,0,0],   // wins per player
+    roundNum: 0,
+    status: '',
+    thinking: false,
+    gameOver: false,
+  };
+
+  // Deal 13 cards each
+  for (let i=0;i<52;i++) G.players[i%4].hand.push(deck[i]);
+  for (const p of G.players) p.hand.sort(cardCmp);
+
+  // Find who has 3♠
+  let startPlayer = 0;
+  for (let i=0;i<4;i++) {
+    if (G.players[i].hand.some(c=>c.rank==='3'&&c.suit==='♠')) { startPlayer=i; break; }
+  }
+  G.turn = startPlayer;
+  G.roundNum++;
+
+  G.status = startPlayer===0 ? 'Bạn có 3♠ - bạn đánh trước!' : `${G.players[startPlayer].name} có 3♠ - họ đánh trước`;
+  G.mustInclude3S = true;
+
+  render();
+
+  if (startPlayer !== 0) {
+    setTimeout(doBotTurns, 800);
+  }
+}
+
+let selectedCards = new Set();
+
+function render() {
+  renderScoreBar();
+  renderBots();
+  renderTable();
+  renderPlayerHand();
+  renderActions();
+}
+
+function renderScoreBar() {
+  const bar = document.getElementById('score-bar');
+  bar.innerHTML = G.players.map((p,i) => {
+    const isYou = i===0;
+    return `<div class="score-item ${isYou?'you':''}">
+      <div class="dot" style="background:${isYou?'var(--gold)':'rgba(255,255,255,0.3)'}"></div>
+      <span>${p.name}: ${G.scores[i]} thắng</span>
+    </div>`;
+  }).join('');
+}
+
+function renderBots() {
+  const row = document.getElementById('bots-row');
+  row.innerHTML = G.players.slice(1).map((p,i) => {
+    const pi = i+1;
+    const isActive = G.turn === pi && !p.finished;
+    const isPassed = p.passed && !p.finished;
+    return `<div class="bot-area">
+      <div class="bot-label ${isActive?'active-turn':''}">
+        <div class="turn-indicator"></div>
+        <span>${p.name}</span>
+        <span class="count-badge">${p.hand.length} lá</span>
+        ${isPassed ? '<span style="font-size:0.65rem;color:#e74c3c">Bỏ</span>' : ''}
+        ${p.finished ? '<span style="font-size:0.65rem;color:var(--gold)">✓ #'+p.finishRank+'</span>' : ''}
+      </div>
+      <div class="bot-hand">
+        ${p.hand.map((_,ci) => `<div class="bot-card" style="margin-left:${ci===0?'0':'-14px'};opacity:${p.finished?'0.3':'1'}"></div>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderTable() {
+  const rows = document.getElementById('played-rows');
+  const last5 = G.currentTrick.slice(-5);
+  rows.innerHTML = last5.map(play => {
+    const isYou = play.playerIdx===0;
+    const isBomb = play.combo.bomb;
+    return `<div class="played-row">
+      <div class="played-by ${isYou?'you':''}">${G.players[play.playerIdx].name}</div>
+      <div class="played-cards">${play.combo.cards.map(c=>renderCardHTML(c,true)).join('')}</div>
+      <span class="combo-label ${isBomb?'bomb':''}">${COMBO_NAMES[play.combo.type]||play.combo.type}</span>
+    </div>`;
+  }).join('');
+
+  const statusEl = document.getElementById('status-msg');
+  const thinking = document.getElementById('thinking');
+  statusEl.className = 'status-msg';
+  thinking.className = 'thinking';
+
+  if (G.thinking) {
+    thinking.classList.add('show');
+    statusEl.textContent = '';
+  } else {
+    let cls = 'info';
+    if (G.turn===0 && !G.gameOver) cls = 'you-turn';
+    if (G.lastWasError) cls = 'error';
+    if (G.lastWasSuccess) cls = 'success';
+    statusEl.classList.add(cls);
+    statusEl.textContent = G.status;
+  }
+}
+
+function renderCardHTML(c, small=false) {
+  const isRed = c.suit==='♥'||c.suit==='♦';
+  const cls = `card ${isRed?'red':'black'}${small?' small':''}`;
+  return `<div class="${cls}" style="cursor:default;">
+    <div class="card-corner"><span class="rank">${c.rank}</span><span class="suit-small">${c.suit}</span></div>
+    <div class="suit-center">${c.suit}</div>
+    <div class="card-corner card-corner-bottom"><span class="rank">${c.rank}</span><span class="suit-small">${c.suit}</span></div>
+  </div>`;
+}
+
+function renderPlayerHand() {
+  const hand = document.getElementById('player-hand');
+  const p = G.players[0];
+  hand.innerHTML = p.hand.map((c,i) => {
+    const isRed = c.suit==='♥'||c.suit==='♦';
+    const sel = selectedCards.has(i);
+    return `<div class="card ${isRed?'red':'black'} ${sel?'selected':''}" onclick="toggleCard(${i})">
+      <div class="card-corner"><span class="rank">${c.rank}</span><span class="suit-small">${c.suit}</span></div>
+      <div class="suit-center">${c.suit}</div>
+      <div class="card-corner card-corner-bottom"><span class="rank">${c.rank}</span><span class="suit-small">${c.suit}</span></div>
+    </div>`;
+  }).join('');
+
+  const label = document.getElementById('player-label');
+  label.className = 'player-label' + (G.turn===0&&!G.gameOver?' active-turn':'');
+  document.getElementById('player-count').textContent = p.hand.length + ' lá';
+}
+
+function renderActions() {
+  const isYourTurn = G.turn===0 && !G.gameOver && !G.players[0].finished;
+  document.getElementById('btn-play').disabled = !isYourTurn;
+  document.getElementById('btn-pass').disabled = !isYourTurn || !G.tableCombo;
+  if (!G.tableCombo && isYourTurn) {
+    document.getElementById('btn-pass').disabled = true;
+  }
+}
+
+function toggleCard(i) {
+  if (G.turn !== 0 || G.gameOver || G.players[0].finished) return;
+  if (selectedCards.has(i)) selectedCards.delete(i);
+  else selectedCards.add(i);
+  renderPlayerHand();
+}
+
+function sortHand() {
+  G.players[0].hand.sort(cardCmp);
+  selectedCards.clear();
+  renderPlayerHand();
+}
+
+function playSelected() {
+  if (G.turn !== 0 || G.gameOver) return;
+  const p = G.players[0];
+  const cards = [...selectedCards].map(i=>p.hand[i]);
+  if (cards.length===0) { setStatus('Hãy chọn bài để đánh!', 'error'); return; }
+
+  // First play must include 3♠
+  if (G.mustInclude3S && G.currentTrick.length===0) {
+    if (!cards.some(c=>c.rank==='3'&&c.suit==='♠')) {
+      setStatus('Lượt đầu phải có 3♠!', 'error'); return;
+    }
+  }
+
+  const combo = detectCombo(cards);
+  if (!combo) { setStatus('Bộ bài không hợp lệ!', 'error'); return; }
+  if (G.tableCombo && !beats(combo, G.tableCombo)) {
+    setStatus('Bài không đủ mạnh để đánh!', 'error'); return;
+  }
+
+  // Apply play
+  applyPlay(0, combo);
+  selectedCards.clear();
+  G.mustInclude3S = false;
+  G.lastWasError = false;
+  G.lastWasSuccess = true;
+
+  if (!G.gameOver) {
+    G.lastWasSuccess = false;
+    setTimeout(doBotTurns, 500);
+  }
+}
+
+function pass() {
+  if (G.turn !== 0 || !G.tableCombo || G.gameOver) return;
+  G.players[0].passed = true;
+  setStatus('Bạn bỏ qua.', 'info');
+  advanceTurn();
+  if (!G.gameOver) setTimeout(doBotTurns, 500);
+}
+
+function applyPlay(playerIdx, combo) {
+  const p = G.players[playerIdx];
+  // Remove played cards from hand
+  const played = new Set(combo.cards.map(c=>c.rank+'_'+c.suit));
+  p.hand = p.hand.filter(c=>!played.has(c.rank+'_'+c.suit));
+  G.tableCombo = combo;
+  G.currentTrick.push({playerIdx, combo});
+
+  // Reset passed flags since play happened
+  for (const pl of G.players) pl.passed = false;
+  p.passed = false;
+
+  G.status = `${p.name} đánh ${COMBO_NAMES[combo.type]}`;
+
+  if (p.hand.length === 0) {
+    const rank = G.finishOrder.length + 1;
+    p.finished = true;
+    p.finishRank = rank;
+    G.finishOrder.push(playerIdx);
+    if (rank===1) { G.scores[playerIdx]++; G.status = `🎉 ${p.name} thắng!`; }
+    else G.status += ` — ${p.name} về ${['nhất','nhì','ba','bét'][rank-1]}!`;
+  }
+
+  const active = G.players.filter(pl=>!pl.finished);
+  if (active.length <= 1) {
+    if (active.length===1) {
+      const last = G.players.indexOf(active[0]);
+      active[0].finished = true;
+      active[0].finishRank = 4;
+      G.finishOrder.push(last);
+    }
+    endRound();
+    return;
+  }
+
+  advanceTurn();
+  render();
+}
+
+function advanceTurn() {
+  // Check if all non-finished players (except current trick leader) have passed
+  const active = G.players.filter((p,i)=>!p.finished);
+  const passed = active.filter(p=>p.passed);
+
+  if (passed.length >= active.length - 1 && G.tableCombo) {
+    // Everyone else passed – find who won the trick
+    const lastPlay = G.currentTrick[G.currentTrick.length-1];
+    const winner = lastPlay.playerIdx;
+    // Reset for new trick
+    G.tableCombo = null;
+    G.currentTrick = [];
+    for (const p of G.players) p.passed = false;
+    G.turn = winner;
+    if (!G.players[winner].finished) {
+      G.status = `${G.players[winner].name} thắng trick - đến lượt họ!`;
+    }
+    return;
+  }
+
+  // Advance to next active player
+  let next = (G.turn + 1) % 4;
+  let tries = 0;
+  while ((G.players[next].finished || G.players[next].passed) && tries<4) {
+    next = (next+1)%4; tries++;
+  }
+  G.turn = next;
+}
+
+function doBotTurns() {
+  if (G.gameOver || G.turn===0) { render(); return; }
+  const p = G.players[G.turn];
+  if (!p || p.finished) { advanceTurn(); doBotTurns(); return; }
+
+  G.thinking = true; render();
+
+  const delay = 600 + Math.random()*500;
+  setTimeout(() => {
+    G.thinking = false;
+    p.bot.hand = p.hand;
+    const play = p.bot.think(G.tableCombo, G.players, G.currentTrick);
+    if (play) {
+      applyPlay(G.turn, play);
+    } else {
+      p.passed = true;
+      G.status = `${p.name} bỏ qua.`;
+      advanceTurn();
+    }
+    render();
+    if (!G.gameOver && G.turn!==0) {
+      setTimeout(doBotTurns, 700);
+    }
+  }, delay);
+}
+
+function endRound() {
+  G.gameOver = true;
+  G.thinking = false;
+  render();
+
+  const medals = ['🥇','🥈','🥉','💀'];
+  const youRank = G.players[0].finishRank;
+  const msgs = ['Xuất sắc! Bạn thắng!','Tốt! Bạn về nhì.','Cố lên, bạn về ba.','Bét bảng rồi...'];
+
+  document.getElementById('finish-title').textContent = medals[youRank-1]+' '+['Thắng!','Nhì!','Ba!','Bét!'][youRank-1];
+  document.getElementById('finish-subtitle').textContent = msgs[youRank-1];
+
+  const ranksEl = document.getElementById('finish-ranks');
+  ranksEl.innerHTML = G.finishOrder.map((pi,ri) => {
+    const isYou = pi===0;
+    return `<div class="finish-rank ${isYou?'you':''}">
+      <span class="medal">${medals[ri]}</span>
+      <span class="rank-name">${G.players[pi].name}</span>
+      <span style="font-size:0.75rem;color:rgba(255,255,255,0.4)">${['Nhất','Nhì','Ba','Bét'][ri]}</span>
+    </div>`;
+  }).join('');
+
+  setTimeout(()=>{ document.getElementById('finish-overlay').classList.add('show'); }, 800);
+}
+
+function setStatus(msg, type) {
+  G.status = msg;
+  G.lastWasError = type==='error';
+  G.lastWasSuccess = type==='success';
+  renderTable();
+}
+
+// Start
+newGame();
+</script>
+</body>
+</html>
